@@ -8,12 +8,12 @@ import pickle  # to save/load Q-Tables
 from matplotlib import style  # to make pretty charts because it matters.
 import time  # using this to keep track of our saved Q-Tables.
 
-import main
+import schnyberpunk2077 as snake
 
 style.use("ggplot")  # setting our style!
 
-SIZE = main.size
-HM_EPISODES = 10
+SIZE = snake.size
+HM_EPISODES = 1000
 MOVE_PENALTY = 1  # feel free to tinker with these!
 ENEMY_PENALTY = 300  # feel free to tinker with these!
 FOOD_REWARD = 25  # feel free to tinker with these!
@@ -23,9 +23,6 @@ SHOW_EVERY = 1000  # how often to play through env visually.
 
 LEARNING_RATE = 0.1
 DISCOUNT = 0.95
-
-AI_Mode = True
-init_param = not AI_Mode
 
 start_q_table = None
 
@@ -43,27 +40,29 @@ start_q_table = None
 
 def set_direction(ID):
     if ID == 0:
-        main.direction = main.up
+        snake.direction = snake.up
     elif ID == 1:
-        main.direction = main.right
+        snake.direction = snake.right
     elif ID == 2:
-        main.direction = main.down
+        snake.direction = snake.down
     elif ID == 3:
-        main.direction = main.left
+        snake.direction = snake.left
 
-main.init(init_param)
-
-print(main.gamestate)
+snake.init(False)
 
 EPISODE = 0
 while EPISODE < HM_EPISODES:
-    while not main.lost:
-        set_direction(random.randint(0,3))
-        main.update_loop()
-        print(main.direction)
-        time.sleep(1)
-    main.update_loop()
-    print("Episode: " + str(EPISODE))
+    while not snake.lost:
+        set_direction(random.randint(0, 3))
+        snake.update_loop()
+        print(snake.direction)
+        time.sleep(0.1)
+
+    snake.update_loop()
+    print("Episode: " + str(EPISODE + 1))
     EPISODE+=1
+
+#thread2.join()
+
 
 

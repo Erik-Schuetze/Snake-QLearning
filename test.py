@@ -79,6 +79,7 @@ class Window(QMainWindow):
 
     def call_loop(self):
         update_loop(False)
+        AI()
         self.repaint()
 
     def paintEvent(self, event):
@@ -117,7 +118,10 @@ class Window(QMainWindow):
             color_multiplier = 1 / len(snake)
             color = ((i * color_multiplier) * 70) + 30
             color = round(color)
-            qp.fillRect((x * rect_size) + 1, (y * rect_size) + 1, rect_size - 2, rect_size - 2, QColor(0, color, color))
+            if i == 0:
+                qp.fillRect((x * rect_size) + 1, (y * rect_size) + 1, rect_size - 2, rect_size - 2, QColor(0, 0, 0))
+            else:
+                qp.fillRect((x * rect_size) + 1, (y * rect_size) + 1, rect_size - 2, rect_size - 2, QColor(0, color, color))
             i += 1
 
         qp.end()
@@ -135,7 +139,6 @@ def update_loop(debugmode):
     update_score()
     #clear_gamestate()
     update_gamestate()
-    capture_data()
     #print("6")
     #print(score)
     if debugmode:
@@ -143,34 +146,6 @@ def update_loop(debugmode):
     #print(snake)
 
 #-------------------------------------
-def capture_data():
-    global gamestate
-    global direction
-    global lost
-    if direction == up:
-        direction_id = 0
-    elif direction == right:
-        direction_id = 1
-    elif direction == down:
-        direction_id = 2
-    elif direction == left:
-        direction_id = 3
-    output_array = [gamestate, direction_id]
-    if output_array:
-        file = open("data.txt", 'a')
-        file.write(str(output_array) + "\n")
-        file.close()
-        if lost:
-            file = open("data.txt", 'r')
-            data = file.readlines()
-            data = data[:-3]
-            file.close()
-            file = open("data.txt", 'w')
-            for i in range(len(data)):
-                file.write(data[i])
-            file.close()
-
-
 def print_gamestate():
     global gamestate
     print("")
@@ -381,9 +356,153 @@ def set_active(value):
     active = value
 
 
-listener = keyboard.Listener(
-    on_press=on_press,
+#listener = keyboard.Listener(
+#    on_press=on_press,
     #  on_release=on_release)
-)
-listener.start()
+#)
+#listener.start()
 
+#############################################
+
+import random
+
+import numpy as np  # for array stuff and random
+from PIL import Image  # for creating visual of our env
+#import cv2  # for showing our visual live
+import matplotlib.pyplot as plt  # for graphing our mean rewards over time
+import pickle  # to save/load Q-Tables
+from matplotlib import style  # to make pretty charts because it matters.
+import time  # using this to keep track of our saved Q-Tables.
+
+
+
+#style.use("ggplot")  # setting our style!
+
+
+def set_direction(ID):
+    global direction
+    if ID == 0:
+        if not direction == down:
+            direction = up
+    elif ID == 1:
+        if not direction == left:
+            direction = right
+    elif ID == 2:
+        if not direction == up:
+            direction = down
+    elif ID == 3:
+        if not direction == right:
+            direction = left
+
+def make_decision():
+    decision_ID = 5
+
+    if decision_ID == 5:
+        set_direction(random.randint(0, 3))
+
+
+
+def AI():
+    SIZE = size
+    HM_EPISODES = 50000
+    MOVE_PENALTY = 1  # feel free to tinker with these!
+    LOSE_PENALTY = 300  # feel free to tinker with these!
+    FOOD_BASE_REWARD = 300  # feel free to tinker with these!
+    FOOD_BONUS_REWARD = 100
+    epsilon = 0.5  # randomness
+    EPS_DECAY = 0.9999  # Every episode will be epsilon*EPS_DECAY
+    SHOW_EVERY = 1000  # how often to play through env visually.
+    MAX_STEPS = 500
+
+    LEARNING_RATE = 0.1
+    DISCOUNT = 0.95
+
+    start_q_table = "qtable-1625338052.pickle"
+
+    if start_q_table is None:
+        # initialize the q-table
+        q_table = {}
+        for i in range(-SIZE + 1, SIZE):
+            for ii in range(-SIZE + 1, SIZE):
+                q_table[i, ii] = [np.random.uniform(-5, 0) for i in range(4)]
+    else:
+        #print("test")
+        with open(start_q_table, "rb") as f:
+            q_table = pickle.load(f)
+        #print("test2")
+    #print(q_table)
+
+    i = 0
+    episode_rewards = []
+    episode_reward = 0
+    EPISODE = 0
+
+    while not lost and i < MAX_STEPS:
+        last_score = score
+        #make_decision()
+        #update_loop(False)
+        #print(direction)
+        #print("updated")
+        #time.sleep(0.01)
+
+        obs = (snake[0][0] - apple_pos[0], snake[0][1] - apple_pos[1])
+        # print(obs)
+        if np.random.random() > epsilon:
+            # GET THE ACTION
+            action = np.argmax(q_table[obs])
+        else:
+            action = np.random.randint(0, 4)
+        # Take the action!
+        set_direction(action)
+        if lost:
+            reward = -LOSE_PENALTY
+        elif score == last_score + 1:
+            reward = FOOD_BASE_REWARD + (FOOD_BONUS_REWARD * score)
+            i = 0
+        else:
+            reward = -MOVE_PENALTY
+        ## NOW WE KNOW THE REWARD, LET'S CALC YO
+        # first we need to obs immediately after the move.
+        new_obs = (snake[0][0] - apple_pos[0], snake[0][1] - apple_pos[1])
+        max_future_q = np.max(q_table[new_obs])
+        current_q = q_table[obs][action]
+
+        if reward == FOOD_BASE_REWARD + (FOOD_BONUS_REWARD * score):
+            new_q = FOOD_BASE_REWARD + (FOOD_BONUS_REWARD * score)
+        else:
+            new_q = (1 - LEARNING_RATE) * current_q + LEARNING_RATE * (reward + DISCOUNT * max_future_q)
+        q_table[obs][action] = new_q
+
+        episode_reward += reward
+        #if reward == FOOD_REWARD or reward == -LOSE_PENALTY:
+        #    break
+        episode_score = score
+        i += 1
+
+            #if score > last_score:
+            #    print("score: " + str(score))
+
+            # print(episode_reward)
+
+    episode_rewards.append(episode_reward)
+    epsilon *= EPS_DECAY
+
+    #update_loop(False)
+    EPISODE += 1
+
+    #score_visual = "I" * last_score
+    #print("Episode: " + str(EPISODE) + ", \treward: " + str(episode_reward)+ ", \tscore: " + str(episode_score) + "\t" + score_visual)
+
+
+
+    #moving_avg = np.convolve(episode_rewards, np.ones((SHOW_EVERY,))/SHOW_EVERY, mode='valid')
+
+    #plt.plot([i for i in range(len(moving_avg))], moving_avg)
+    #plt.ylabel(f"Reward {SHOW_EVERY}ma")
+    #plt.xlabel("episode #")
+    #plt.show()
+
+    #with open(f"qtable-{int(time.time())}.pickle", "wb") as f:
+    #    pickle.dump(q_table, f)
+
+init(True)

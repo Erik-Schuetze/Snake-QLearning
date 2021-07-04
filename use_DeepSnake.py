@@ -45,7 +45,7 @@ class Window(QMainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self.call_loop)
 
-        self.timer.start(130)
+        self.timer.start(100)
 
 # ---------------- video part
 
@@ -79,6 +79,7 @@ class Window(QMainWindow):
 
     def call_loop(self):
         update_loop(False)
+        AI()
         self.repaint()
 
     def paintEvent(self, event):
@@ -117,7 +118,10 @@ class Window(QMainWindow):
             color_multiplier = 1 / len(snake)
             color = ((i * color_multiplier) * 70) + 30
             color = round(color)
-            qp.fillRect((x * rect_size) + 1, (y * rect_size) + 1, rect_size - 2, rect_size - 2, QColor(0, color, color))
+            if i == 0:
+                qp.fillRect((x * rect_size) + 1, (y * rect_size) + 1, rect_size - 2, rect_size - 2, QColor(0, 0, 0))
+            else:
+                qp.fillRect((x * rect_size) + 1, (y * rect_size) + 1, rect_size - 2, rect_size - 2, QColor(0, color, color))
             i += 1
 
         qp.end()
@@ -135,7 +139,6 @@ def update_loop(debugmode):
     update_score()
     #clear_gamestate()
     update_gamestate()
-    #capture_data()
     #print("6")
     #print(score)
     if debugmode:
@@ -143,38 +146,6 @@ def update_loop(debugmode):
     #print(snake)
 
 #-------------------------------------
-def capture_data():
-    global gamestate
-    global direction
-    global lost
-    global score
-    #if score == 1:
-    #    lost = True
-    #    check_lost()
-    if direction == up:
-        direction_id = 0
-    elif direction == right:
-        direction_id = 1
-    elif direction == down:
-        direction_id = 2
-    elif direction == left:
-        direction_id = 3
-    output_array = [gamestate, direction_id]
-    if output_array:
-        file = open("data.txt", 'a')
-        file.write(str(output_array) + "\n")
-        file.close()
-        if lost:
-            file = open("data.txt", 'r')
-            data = file.readlines()
-            data = data[:-1]
-            file.close()
-            file = open("data.txt", 'w')
-            for i in range(len(data)):
-                file.write(data[i])
-            file.close()
-
-
 def print_gamestate():
     global gamestate
     print("")
@@ -385,9 +356,89 @@ def set_active(value):
     active = value
 
 
-listener = keyboard.Listener(
-    on_press=on_press,
+#listener = keyboard.Listener(
+#    on_press=on_press,
     #  on_release=on_release)
-)
-listener.start()
+#)
+#listener.start()
 
+#############################################
+
+import random
+
+import numpy as np  # for array stuff and random
+from PIL import Image  # for creating visual of our env
+#import cv2  # for showing our visual live
+import matplotlib.pyplot as plt  # for graphing our mean rewards over time
+import pickle  # to save/load Q-Tables
+from matplotlib import style  # to make pretty charts because it matters.
+import time  # using this to keep track of our saved Q-Tables.
+
+
+
+#style.use("ggplot")  # setting our style!
+
+
+def set_direction(ID):
+    global direction
+    if ID == 0:
+        direction = up
+    elif ID == 1:
+        direction = right
+    elif ID == 2:
+        direction = down
+    elif ID == 3:
+        direction = left
+
+def make_decision():
+    decision_ID = 5
+
+    if decision_ID == 5:
+        set_direction(random.randint(0, 3))
+
+
+
+def AI():
+    import os, sys
+    import tensorflow as tf
+    #os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+    #tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+
+    #sys.path.append("/home/eschuetze/workspace/testtf/")
+    #import AtlasTools
+    checkpoint_path = "cp.ckpt"
+
+    global gamestate
+    global direction
+
+    #fashion_mnist = tf.keras.datasets.fashion_mnist
+    #(train_images, train_labels), (test_images, test_labels) = fashion_mnist.load_data()
+
+    #train_labels = train_labels[:1000]
+    #test_labels = test_labels[:1000]
+    #train_images = train_images[:1000].reshape(-1, 28 * 28) / 255.0
+    #test_images = test_images[:1000].reshape(-1, 28 * 28) / 255.0
+    data = np.array(gamestate, dtype='float32')
+    data = data / 3.0
+    data = np.expand_dims(data,0)
+    print(data.shape)
+
+    model = tf.keras.Sequential([
+        tf.keras.layers.Flatten(input_shape=(10, 10)),
+        tf.keras.layers.Dense(50, activation='relu'),
+        tf.keras.layers.Dense(4)
+    ])
+
+    #model.compile(optimizer='adam',
+    #              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+    #              metrics=['accuracy'])
+
+    model.load_weights(checkpoint_path)
+
+    prediction = model.predict(data)
+    prediction = np.argmax(prediction[0])
+    print(prediction)
+    set_direction(prediction)
+
+
+init(True)

@@ -1,2 +1,4 @@
 *.pickle
 data.txt
+checkpoint
+cp*
